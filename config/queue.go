@@ -2,8 +2,6 @@ package config
 
 import "os"
 
-
-
 // SERVICE_NAME is the name of the service
 var SERVICE = os.Getenv("APP_SERVICE")
 
