@@ -1,0 +1,15 @@
+version: "3.3"
+
+services:
+  cisgraderoom-api:
+    container_name: cisgraderoom-compiler
+    image: cisgraderoom/compiler
+    restart: always
+    build:
+      context: .
+      dockerfile: dev.Dockerfile
+    working_dir: /app
+    env_file:
+      - ./.env
+    volumes:
+      - .:/app
