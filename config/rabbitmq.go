@@ -18,12 +18,12 @@ type RabbitMQDefaultConfig struct {
 // GetDefaultConfig returns a default RabbitMQ configuration
 func RabbitMQ_URL() string {
 	rabbitmq := RabbitMQDefaultConfig{
-		protocol: os.Getenv("DEKD_RABBITMQ_PROTOCAL"),
-		hostname: os.Getenv("DEKD_RABBITMQ_HOST"),
-		port:     os.Getenv("DEKD_RABBITMQ_PORT"),
+		protocol: os.Getenv("CIS_RABBITMQ_PROTOCAL"),
+		hostname: os.Getenv("CIS_RABBITMQ_HOST"),
+		port:     os.Getenv("CIS_RABBITMQ_PORT"),
 		vhost:    os.Getenv("APP_RABBITMQ_VHOST"),
-		username: os.Getenv("APP_RABBITMQ_USERNAME_WRITER"),
-		password: os.Getenv("APP_RABBITMQ_PASSWORD_WRITER"),
+		username: os.Getenv("RABBITMQ_DEFAULT_USER"),
+		password: os.Getenv("RABBITMQ_DEFAULT_PASS"),
 	}
 	return fmt.Sprintf("%s://%s:%s@%s:%s/%s", rabbitmq.protocol, rabbitmq.username, rabbitmq.password, rabbitmq.hostname, rabbitmq.port, rabbitmq.vhost)
 }

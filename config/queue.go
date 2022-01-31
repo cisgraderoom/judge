@@ -7,18 +7,25 @@ var SERVICE = os.Getenv("APP_SERVICE")
 
 // QueueConfig is the configuration for the queue
 var QueueConfig = map[string]interface{}{
-	"writer": map[string]interface{}{
+	"judge": map[string]interface{}{
 		"exchange": map[string]interface{}{
-			"name": "report.writer",
+			"name": "cisgraderoom.judge",
 			"type": "topic",
 			"options": map[string]interface{}{
 				"durable": true,
 			},
 		},
 		"queues": map[string]interface{}{
-			"daily": map[string]interface{}{
-				"name":         "report.writer.daily",
-				"routing_keys": []string{"report.writer.daily.*"},
+			"sender": map[string]interface{}{
+				"name":         "cisgraderoom.judge.sender",
+				"routing_keys": []string{"cisgraderoom.judge.sender.*"},
+				"options": map[string]interface{}{
+					"durable": true,
+				},
+			},
+			"result": map[string]interface{}{
+				"name":         "cisgraderoom.judge.result",
+				"routing_keys": []string{"cisgraderoom.judge.result.*"},
 				"options": map[string]interface{}{
 					"durable": true,
 				},

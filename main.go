@@ -1,28 +1,40 @@
 package main
 
+import (
+	"fmt"
+	"os"
+
+	"github.com/streadway/amqp"
+	"gitlab.com/cisclassroom/compiler/config"
+	"gitlab.com/cisclassroom/compiler/logs"
+	"gitlab.com/cisclassroom/compiler/utils"
+)
+
 func main() {
-	// // Start Report Service
-	// logger.LogInfo("starter", fmt.Sprintf("🐳 GO_ENV: %s, APP_ENV: %s", os.Getenv("GO_ENV"), os.Getenv("APP_ENV")))
+	// Start Report Service
+	logs.Info(fmt.Sprintf("🐳 GO_ENV: %s, APP_ENV: %s", os.Getenv("GO_ENV"), os.Getenv("APP_ENV")))
 
-	// // Connect RabbitMQ Server
-	// rabbitmqConfig := configs.RabbitMQ_URL()
-	// conn, err := amqp.Dial(rabbitmqConfig)
+	// Connect RabbitMQ Server
+	rabbitmqConfig := config.RabbitMQ_URL()
+	conn, err := amqp.Dial(rabbitmqConfig)
 
-	// if err != nil {
-	// 	logger.LogFatal("main connect rabbitmq", err)
-	// }
+	logs.Info(rabbitmqConfig)
 
-	// defer conn.Close()
+	if err != nil {
+		logs.Fatal("main connect rabbitmq")
+	}
 
-	// // Coonect RabbitMQ Success Log
-	// logger.LogInfo("rabbitmq", "Successfully Connected to RabbitMQ")
+	defer conn.Close()
 
-	// // get service queue config from service
-	// serviceConfig := configs.QueueConfig[configs.SERVICE].(map[string]interface{})["queues"].(map[string]interface{})
+	// Conect RabbitMQ Success Log
+	logs.Info("Successfully Connected to RabbitMQ")
 
-	// for key, _ := range serviceConfig {
-	// 	go helper.GetChannelCB(configs.SERVICE, key, conn)
-	// }
+	// get service queue config from service
+	serviceConfig := config.QueueConfig[config.SERVICE].(map[string]interface{})["queues"].(map[string]interface{})
 
-	// select {}
+	for key, _ := range serviceConfig {
+		go utils.GetChannelCB(config.SERVICE, key, conn)
+	}
+
+	select {}
 }
