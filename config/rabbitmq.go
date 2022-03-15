@@ -25,5 +25,5 @@ func RabbitMQ_URL() string {
 		username: os.Getenv("RABBITMQ_DEFAULT_USER"),
 		password: os.Getenv("RABBITMQ_DEFAULT_PASS"),
 	}
-	return fmt.Sprintf("%s://%s:%s@%s:%s/%s", rabbitmq.protocol, rabbitmq.username, rabbitmq.password, rabbitmq.hostname, rabbitmq.port, rabbitmq.vhost)
+	return fmt.Sprintf("%s://%s:%s@%s:%s/", rabbitmq.protocol, rabbitmq.username, rabbitmq.password, rabbitmq.hostname, rabbitmq.port)
 }

@@ -87,7 +87,7 @@ func GetChannelCB(service, module string, conn *amqp.Connection) {
 
 	go func() {
 		for d := range msgs {
-			fmt.Println(d)
+			fmt.Println(string(d.Body[:]))
 			// curlUpdateDailyReport(d)
 		}
 	}()

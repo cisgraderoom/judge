@@ -1,7 +1,7 @@
 version: "3.3"
 
 services:
-  cisgraderoom-api:
+  cisgraderoom-compiler:
     container_name: cisgraderoom-compiler
     image: cisgraderoom/compiler
     restart: always
@@ -13,3 +13,8 @@ services:
       - ./.env
     volumes:
       - .:/app
+    networks:
+      - cisgraderoom
+networks:
+  cisgraderoom:
+    external: true
