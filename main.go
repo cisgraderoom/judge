@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 
 	"github.com/streadway/amqp"
 	"gitlab.com/cisclassroom/compiler/comms"
@@ -52,7 +53,6 @@ func messageHandler(_ comms.Connection, q string, deliveries <-chan amqp.Deliver
 			Priority:      d.Priority,
 			CorrelationID: d.CorrelationId,
 		}
-		logs.Info(fmt.Sprintf("data : %v", string(m.Body.Data[:])))
 		if err := judge(m.Body); err != nil {
 			logs.Error(err)
 		} else {
@@ -67,80 +67,52 @@ func judge(message comms.MessageBody) error {
 		logs.Error(err)
 		return err
 	}
-
+	err := writeTestCaseFile(payload)
+	if err != nil {
+		logs.Error(err)
+		return err
+	}
+	err = compile(payload)
+	if err != nil {
+		logs.Error(err)
+		return err
+	}
 	return nil
 }
 
-// Judge - function for judge code, call from submission.controller.go
-// func Judge(compileFile, fileC, fileOut, numberOfTestCase, testCase, OutDir, fileSol, submissionID string, score float64, timeout int, teacher string, problemID string, username string) error {
-// 	var result string
-// 	var rScore float64
-// 	runningDir, _ := os.Getwd()
-// 	submission := models.Submission{}
+func writeTestCaseFile(payload schemas.Payload) error {
+	dir, _ := os.Getwd()
+	for i := 1; i <= payload.Testcase; i++ {
+		index := i - 1
+		input := []byte(payload.Input[index])
+		if err := os.WriteFile(fmt.Sprintf("%s/out/%d.in", dir, i), input, 0775); err != nil {
+			return err
+		}
+		output := []byte(payload.Output[index])
+		if err := os.WriteFile(fmt.Sprintf("%s/out/%d.out", dir, i), output, 0775); err != nil {
+			return err
+		}
+	}
+	code := []byte(payload.Code)
+	if err := os.WriteFile(fmt.Sprintf("%s/out/Main.%s", dir, payload.Language), code, 0775); err != nil {
+		return err
+	}
+	return nil
+}
 
-// 	// compile
-
-// 	compile := exec.Command(compileFile, fileC, fileOut)
-// 	err := compile.Run()
-// 	if err != nil {
-// 		if err := database.GetDB().Where("id = ?", submissionID).First(&submission); err.Error != nil {
-// 			return err.Error
-// 		}
-// 		submission.Err = err.Error()
-// 		submission.Status = "error"
-// 		submission.Result = "compile error"
-// 		if err := database.GetDB().Save(&submission); err.Error != nil {
-// 			return err.Error
-// 		}
-// 		return err
-// 	}
-
-// 	// runtime
-// 	num, err := strconv.Atoi(numberOfTestCase)
-// 	for i := 1; i <= num; i++ {
-// 		var t = time.Now()
-// 		runtime := exec.Command(runningDir+"/runtime.sh", fmt.Sprint(timeout), testCase, OutDir+"/"+fmt.Sprint(i)+".in", fileSol+"/"+fmt.Sprint(i)+".out")
-// 		err := runtime.Run()
-// 		if err != nil {
-// 			println(err.Error())
-// 			return err
-// 		}
-// 		elapsed := time.Since(t)
-// 		println(elapsed)
-// 		// check
-// 		fileTeacher, err := ioutil.ReadFile(fmt.Sprintf("%s/%d.out", OutDir, i))
-// 		if err != nil {
-// 			return err
-// 		}
-// 		fileStudent, err := ioutil.ReadFile(fmt.Sprintf("%s/%d.out", fileSol, i))
-// 		if err != nil {
-// 			return err
-// 		}
-// 		if bytes.Equal(fileTeacher, fileStudent) {
-// 			result += "P"
-// 			rScore += score / float64(num)
-// 		} else if elapsed > (time.Duration(timeout) * 1e9) {
-// 			result += "T"
-// 		} else {
-// 			result += "-"
-// 		}
-// 	}
-// 	if err := database.GetDB().Where("id = ?", submissionID).First(&submission); err.Error != nil {
-// 		return err.Error
-// 	}
-// 	submission.Status = "successful"
-// 	submission.Result = result
-// 	submission.Score = rScore
-
-// 	if err := database.GetDB().Save(&submission); err.Error != nil {
-// 		return err.Error
-// 	}
-
-// 	sql := fmt.Sprintf("UPDATE section_%s SET %s=%v WHERE username='%s';", teacher, problemID, rScore, username)
-// 	fmt.Print(sql)
-// 	if err := database.GetDB().Exec(sql); err.Error != nil {
-// 		return err.Error
-// 	}
-
-// 	return err
-// }
+func compile(payload schemas.Payload) error {
+	dir, _ := os.Getwd()
+	script := fmt.Sprintf("%s/script/%s", dir, "compile.sh")
+	err := os.Chmod(script, 0775)
+	if err != nil {
+		return err
+	}
+	fileCompile := fmt.Sprintf("%s/out/Main.%s", dir, payload.Language)
+	fileOutput := fmt.Sprintf("%s/out/output", dir)
+	errOutput := fmt.Sprintf("%s/out/err", dir)
+	res := exec.Command("/bin/sh", script, fileCompile, payload.Language, fileOutput, errOutput)
+	if res.Run() != nil {
+		return res.Run()
+	}
+	return nil
+}

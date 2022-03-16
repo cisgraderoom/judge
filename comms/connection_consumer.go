@@ -154,7 +154,6 @@ func (c *Connection) Consume() (map[string]<-chan amqp.Delivery, error) {
 
 // HandleConsumedDeliveries handles the consumed deliveries from the queues. Should be called only for a consumer connection
 func (c *Connection) HandleConsumedDeliveries(q string, delivery <-chan amqp.Delivery, fn func(Connection, string, <-chan amqp.Delivery)) {
-	fmt.Println(q)
 	for {
 		go fn(*c, q, delivery)
 		if err := <-c.err; err != nil {

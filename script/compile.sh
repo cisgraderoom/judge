@@ -8,6 +8,8 @@ EXT="$2";
 
 OUTPUT="$3";
 
+ERROROUT="$4";
+
 if [[ -z "$FILENAME" && -z "$EXT" ]]; then
 	echo "Invalid argument"
 	echo "example: ./compile filename extension output_filename"
@@ -29,7 +31,7 @@ if [[ $EXT == "java" ]]; then
 	EXITCODE=$?
 
 	echo "exit_code: $EXITCODE"
-	execution_time
+	execution_time  > $ERROROUT
 fi
 
 if [[ $EXT == "cpp" ]]; then
@@ -42,7 +44,7 @@ if [[ $EXT == "cpp" ]]; then
 	EXITCODE=$?
 	
 	echo "exit_code: $EXITCODE"
-	execution_time
+	execution_time  > $ERROROUT
 
 fi
 
@@ -56,6 +58,6 @@ if [[ $EXT == "c" ]]; then
 	EXITCODE=$?
 
 	echo "exit_code: $EXITCODE"
-	execution_time
+	execution_time > $ERROROUT
 
 fi
