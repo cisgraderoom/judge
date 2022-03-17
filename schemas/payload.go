@@ -10,4 +10,5 @@ type Payload struct {
 	ProblemId int      `json:"problem_id"`
 	Username  string   `json:"username"`
 	Testcase  int      `json:"testcase"`
+	MaxScore  float64  `json:"max_score"`
 }

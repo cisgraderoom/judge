@@ -2,60 +2,39 @@
 
 START=$(date +%s);
 
-FILENAME="$1";
+FILELIMIT="$1";
 
-EXT="$2";
+TIMEOUT="$2";
 
-OUTPUT="$3";
+MEM="$3";
+
+FILENAME="$4";
+
+INPUT="$5";
+
+OUTPUT="$6";
+
+COMPARE="$7";
+
+RESULT="$8";
+
 
 if [[ -z "$FILENAME" && -z "$EXT" ]]; then
 	echo "Invalid argument"
 	echo "example: ./compile filename extension output_filename"
+	exit;
 fi
 
-function execution_time
-{
-	END=$(date +%s);
-	echo "compile_time: $((END-START))"
-	exit 0
-}
 
-if [[ $EXT == "java" ]]; then
-	javac $FILENAME >/dev/null 2>/dev/null &
-	
-	pid="$!"
-	wait "$pid"
-
-	EXITCODE=$?
-
-	echo "exit_code: $EXITCODE"
-	execution_time
+$FILELIMIT -t $TIMEOUT -m $MEM $FILENAME  < $INPUT > $OUTPUT &
+sleep $TIMEOUT
+if [ $? != 0 ]
+then
+	echo "$(cat $RESULT)E" >  $RESULT
+	exit
 fi
-
-if [[ $EXT == "cpp" ]]; then
-
-	g++ $FILENAME -O2 -o $OUTPUT >/dev/null 2>$OUTPUT &
-
-	pid="$!"
-	wait "$pid"
-
-	EXITCODE=$?
-	
-	echo "exit_code: $EXITCODE"
-	execution_time
-
-fi
-
-if [[ $EXT == "c" ]]; then
-
-	gcc $FILENAME -O2 -o $OUTPUT >/dev/null 2>$OUTPUT &
-	
-	pid="$!"
-	wait "$pid"
-
-	EXITCODE=$?
-
-	echo "exit_code: $EXITCODE"
-	execution_time
-
+if cmp $OUTPUT $COMPARE; then
+	echo "$(cat $RESULT)P" >  $RESULT
+else
+	echo "$(cat $RESULT)F" >  $RESULT
 fi

@@ -8,7 +8,7 @@ EXT="$2";
 
 OUTPUT="$3";
 
-ERROROUT="$4";
+ERR="$4";
 
 if [[ -z "$FILENAME" && -z "$EXT" ]]; then
 	echo "Invalid argument"
@@ -31,7 +31,7 @@ if [[ $EXT == "java" ]]; then
 	EXITCODE=$?
 
 	echo "exit_code: $EXITCODE"
-	execution_time  > $ERROROUT
+	execution_time
 fi
 
 if [[ $EXT == "cpp" ]]; then
@@ -44,13 +44,13 @@ if [[ $EXT == "cpp" ]]; then
 	EXITCODE=$?
 	
 	echo "exit_code: $EXITCODE"
-	execution_time  > $ERROROUT
+	execution_time
 
 fi
 
 if [[ $EXT == "c" ]]; then
 
-	gcc $FILENAME -O2 -o $OUTPUT >/dev/null 2>$OUTPUT &
+	gcc $FILENAME -O2 -o $OUTPUT >/dev/null 2>$ERR &
 	
 	pid="$!"
 	wait "$pid"
@@ -58,6 +58,6 @@ if [[ $EXT == "c" ]]; then
 	EXITCODE=$?
 
 	echo "exit_code: $EXITCODE"
-	execution_time > $ERROROUT
+	execution_time
 
 fi

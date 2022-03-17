@@ -3,19 +3,26 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 
 	"github.com/streadway/amqp"
 	"gitlab.com/cisclassroom/compiler/comms"
 	"gitlab.com/cisclassroom/compiler/config"
+	"gitlab.com/cisclassroom/compiler/conn"
 	"gitlab.com/cisclassroom/compiler/logs"
 	"gitlab.com/cisclassroom/compiler/schemas"
+	"gorm.io/gorm"
 )
+
+var db *gorm.DB
 
 func main() {
 	// Start Report Service
 	logs.Info(fmt.Sprintf("🐳 GO_ENV: %s, APP_ENV: %s", os.Getenv("GO_ENV"), os.Getenv("APP_ENV")))
+
+	db = conn.Connection()
 
 	forever := make(chan bool)
 	refers := []string{"result"}
@@ -77,24 +84,35 @@ func judge(message comms.MessageBody) error {
 		logs.Error(err)
 		return err
 	}
+	err = grade(payload)
+	if err != nil {
+		logs.Error(err)
+		return err
+	}
+	err = removeAllfile(payload)
+	if err != nil {
+		logs.Error(err)
+		return err
+	}
 	return nil
 }
 
 func writeTestCaseFile(payload schemas.Payload) error {
 	dir, _ := os.Getwd()
+	os.MkdirAll(fmt.Sprintf("%s/out/%s", dir, payload.Username), 0777)
 	for i := 1; i <= payload.Testcase; i++ {
 		index := i - 1
 		input := []byte(payload.Input[index])
-		if err := os.WriteFile(fmt.Sprintf("%s/out/%d.in", dir, i), input, 0775); err != nil {
+		if err := ioutil.WriteFile(fmt.Sprintf("%s/out/%s/%d.in", dir, payload.Username, i), input, 0775); err != nil {
 			return err
 		}
 		output := []byte(payload.Output[index])
-		if err := os.WriteFile(fmt.Sprintf("%s/out/%d.out", dir, i), output, 0775); err != nil {
+		if err := ioutil.WriteFile(fmt.Sprintf("%s/out/%s/%d.out", dir, payload.Username, i), output, 0775); err != nil {
 			return err
 		}
 	}
 	code := []byte(payload.Code)
-	if err := os.WriteFile(fmt.Sprintf("%s/out/Main.%s", dir, payload.Language), code, 0775); err != nil {
+	if err := os.WriteFile(fmt.Sprintf("%s/out/%s/Main.%s", dir, payload.Username, payload.Language), code, 0775); err != nil {
 		return err
 	}
 	return nil
@@ -103,16 +121,53 @@ func writeTestCaseFile(payload schemas.Payload) error {
 func compile(payload schemas.Payload) error {
 	dir, _ := os.Getwd()
 	script := fmt.Sprintf("%s/script/%s", dir, "compile.sh")
-	err := os.Chmod(script, 0775)
+	err := os.Chmod(script, 0777)
 	if err != nil {
 		return err
 	}
-	fileCompile := fmt.Sprintf("%s/out/Main.%s", dir, payload.Language)
-	fileOutput := fmt.Sprintf("%s/out/output", dir)
-	errOutput := fmt.Sprintf("%s/out/err", dir)
-	res := exec.Command("/bin/sh", script, fileCompile, payload.Language, fileOutput, errOutput)
+	fileCompile := fmt.Sprintf("%s/out/%s/Main.%s", dir, payload.Username, payload.Language)
+	fileOutput := fmt.Sprintf("%s/out/%s/Main", dir, payload.Username)
+	fileError := fmt.Sprintf("%s/out/%s/error", dir, payload.Username)
+	res := exec.Command("/bin/sh", script, fileCompile, payload.Language, fileOutput, fileError)
 	if res.Run() != nil {
 		return res.Run()
+	}
+	return nil
+}
+
+func grade(payload schemas.Payload) error {
+	dir, _ := os.Getwd()
+	script := fmt.Sprintf("%s/script/%s", dir, "autograder.sh")
+	err := os.Chmod(script, 0777)
+	if err != nil {
+		return err
+	}
+	fileLimit := fmt.Sprintf("%s/script/limit", dir)
+	err = os.Chmod(fileLimit, 0777)
+	if err != nil {
+		return err
+	}
+	fileStudent := fmt.Sprintf("%s/out/%s/Main", dir, payload.Username)
+	for i := 1; i <= payload.Testcase; i++ {
+		compare := fmt.Sprintf("%s/out/%s/%d.out", dir, payload.Username, i)
+		input := fmt.Sprintf("%s/out/%s/%d.in", dir, payload.Username, i)
+		outStudent := fmt.Sprintf("%s/out/%s/student%d.out", dir, payload.Username, i)
+		timeout := fmt.Sprintf("%d", payload.TimeLimit)
+		mem := fmt.Sprintf("%d", payload.MemLimit)
+		result := fmt.Sprintf("%s/out/%s/result", dir, payload.Username)
+		res := exec.Command("/bin/sh", script, fileLimit, timeout, mem, fileStudent, input, outStudent, compare, result)
+		if res.Run() != nil {
+			return res.Run()
+		}
+	}
+	return nil
+}
+
+func removeAllfile(payload schemas.Payload) error {
+	dir, _ := os.Getwd()
+	err := os.RemoveAll(fmt.Sprintf("%s/out/%s", dir, payload.Username))
+	if err != nil {
+		return err
 	}
 	return nil
 }
