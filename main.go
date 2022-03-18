@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/streadway/amqp"
 	"gitlab.com/cisclassroom/compiler/comms"
@@ -71,22 +72,22 @@ func messageHandler(_ comms.Connection, q string, deliveries <-chan amqp.Deliver
 func judge(message comms.MessageBody) error {
 	var payload schemas.Payload
 	if err := json.Unmarshal(message.Data, &payload); err != nil {
-		logs.Error(err)
+		logs.Fatal(err)
 		return err
 	}
 	err := writeTestCaseFile(payload)
 	if err != nil {
-		logs.Error(err)
+		logs.Fatal(err)
 		return err
 	}
 	err = compile(payload)
 	if err != nil {
-		logs.Error(err)
+		logs.Fatal(err)
 		return err
 	}
 	err = grade(payload)
 	if err != nil {
-		logs.Error(err)
+		logs.Fatal(err)
 		return err
 	}
 	err = removeAllfile(payload)
@@ -99,20 +100,20 @@ func judge(message comms.MessageBody) error {
 
 func writeTestCaseFile(payload schemas.Payload) error {
 	dir, _ := os.Getwd()
-	os.MkdirAll(fmt.Sprintf("%s/out/%s", dir, payload.Username), 0777)
+	os.MkdirAll(fmt.Sprintf("%s/out/%d", dir, payload.SubmissionId), 0777)
 	for i := 1; i <= payload.Testcase; i++ {
 		index := i - 1
 		input := []byte(payload.Input[index])
-		if err := ioutil.WriteFile(fmt.Sprintf("%s/out/%s/%d.in", dir, payload.Username, i), input, 0775); err != nil {
+		if err := ioutil.WriteFile(fmt.Sprintf("%s/out/%d/%d.in", dir, payload.SubmissionId, i), input, 0775); err != nil {
 			return err
 		}
 		output := []byte(payload.Output[index])
-		if err := ioutil.WriteFile(fmt.Sprintf("%s/out/%s/%d.out", dir, payload.Username, i), output, 0775); err != nil {
+		if err := ioutil.WriteFile(fmt.Sprintf("%s/out/%d/%d.out", dir, payload.SubmissionId, i), output, 0775); err != nil {
 			return err
 		}
 	}
 	code := []byte(payload.Code)
-	if err := os.WriteFile(fmt.Sprintf("%s/out/%s/Main.%s", dir, payload.Username, payload.Language), code, 0775); err != nil {
+	if err := os.WriteFile(fmt.Sprintf("%s/out/%d/Main.%s", dir, payload.SubmissionId, payload.Language), code, 0775); err != nil {
 		return err
 	}
 	return nil
@@ -125,9 +126,9 @@ func compile(payload schemas.Payload) error {
 	if err != nil {
 		return err
 	}
-	fileCompile := fmt.Sprintf("%s/out/%s/Main.%s", dir, payload.Username, payload.Language)
-	fileOutput := fmt.Sprintf("%s/out/%s/Main", dir, payload.Username)
-	fileError := fmt.Sprintf("%s/out/%s/error", dir, payload.Username)
+	fileCompile := fmt.Sprintf("%s/out/%d/Main.%s", dir, payload.SubmissionId, payload.Language)
+	fileOutput := fmt.Sprintf("%s/out/%d/Main", dir, payload.SubmissionId)
+	fileError := fmt.Sprintf("%s/out/%d/error", dir, payload.SubmissionId)
 	res := exec.Command("/bin/sh", script, fileCompile, payload.Language, fileOutput, fileError)
 	if res.Run() != nil {
 		return res.Run()
@@ -147,25 +148,61 @@ func grade(payload schemas.Payload) error {
 	if err != nil {
 		return err
 	}
-	fileStudent := fmt.Sprintf("%s/out/%s/Main", dir, payload.Username)
+	fileStudent := fmt.Sprintf("%s/out/%d/Main", dir, payload.SubmissionId)
+	result := fmt.Sprintf("%s/out/%d/result", dir, payload.SubmissionId)
 	for i := 1; i <= payload.Testcase; i++ {
-		compare := fmt.Sprintf("%s/out/%s/%d.out", dir, payload.Username, i)
-		input := fmt.Sprintf("%s/out/%s/%d.in", dir, payload.Username, i)
-		outStudent := fmt.Sprintf("%s/out/%s/student%d.out", dir, payload.Username, i)
+		compare := fmt.Sprintf("%s/out/%d/%d.out", dir, payload.SubmissionId, i)
+		input := fmt.Sprintf("%s/out/%d/%d.in", dir, payload.SubmissionId, i)
+		outStudent := fmt.Sprintf("%s/out/%d/student%d.out", dir, payload.SubmissionId, i)
 		timeout := fmt.Sprintf("%d", payload.TimeLimit)
 		mem := fmt.Sprintf("%d", payload.MemLimit)
-		result := fmt.Sprintf("%s/out/%s/result", dir, payload.Username)
 		res := exec.Command("/bin/sh", script, fileLimit, timeout, mem, fileStudent, input, outStudent, compare, result)
 		if res.Run() != nil {
 			return res.Run()
 		}
 	}
+	data, err := os.ReadFile(result)
+	if err != nil {
+		return err
+	}
+	data = data[0 : len(data)-1]
+	resultData := strings.Split(string(data), "")
+
+	err = insertResult(resultData, payload)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func insertResult(data []string, payload schemas.Payload) error {
+	var score float64
+	for _, val := range data {
+		if val == "P" {
+			fmt.Println(payload.MaxScore)
+			score += payload.MaxScore / float64(payload.Testcase)
+		}
+	}
+	err := db.Table("submission").Where("submission_id = ?", payload.SubmissionId).Updates(map[string]interface{}{
+		"result": strings.Join(data, ""),
+		"score":  score,
+	})
+	if err.Error != nil {
+		return err.Error
+	}
+
+	if err := db.Table("score").Where("username = ?", payload.Username).Where("problem_id = ?", payload.ProblemId).Updates(map[string]interface{}{
+		"score": score,
+	}).Error; err != nil {
+		return err
+	}
+
 	return nil
 }
 
 func removeAllfile(payload schemas.Payload) error {
 	dir, _ := os.Getwd()
-	err := os.RemoveAll(fmt.Sprintf("%s/out/%s", dir, payload.Username))
+	err := os.RemoveAll(fmt.Sprintf("%s/out/%d", dir, payload.SubmissionId))
 	if err != nil {
 		return err
 	}
