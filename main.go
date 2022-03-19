@@ -61,6 +61,7 @@ func messageHandler(_ comms.Connection, q string, deliveries <-chan amqp.Deliver
 			Priority:      d.Priority,
 			CorrelationID: d.CorrelationId,
 		}
+		logs.Info(fmt.Sprintf("🐳 Received message from %s", m.Queue))
 		if err := judge(m.Body); err != nil {
 			logs.Error(err)
 		} else {
@@ -82,8 +83,12 @@ func judge(message comms.MessageBody) error {
 	}
 	err = compile(payload)
 	if err != nil {
-		logs.Fatal(err)
-		return err
+		if err.Error() == "CF" {
+			return nil
+		} else {
+			logs.Fatal(err)
+			return err
+		}
 	}
 	err = grade(payload)
 	if err != nil {
@@ -133,6 +138,14 @@ func compile(payload schemas.Payload) error {
 	if res.Run() != nil {
 		return res.Run()
 	}
+	fe, err := os.ReadFile(fileError)
+	if err != nil {
+		return err
+	}
+	if string(fe) != "" {
+		insertCompileError(string(fe), payload)
+		return fmt.Errorf("%s", "CF")
+	}
 	return nil
 }
 
@@ -175,11 +188,21 @@ func grade(payload schemas.Payload) error {
 	return nil
 }
 
+func insertCompileError(fe string, payload schemas.Payload) error {
+	err := db.Table("submission").Where("submission_id = ?", payload.SubmissionId).Updates(map[string]interface{}{
+		"result": fe,
+		"score":  0,
+	})
+	if err.Error != nil {
+		return err.Error
+	}
+	return nil
+}
+
 func insertResult(data []string, payload schemas.Payload) error {
 	var score float64
 	for _, val := range data {
 		if val == "P" {
-			fmt.Println(payload.MaxScore)
 			score += payload.MaxScore / float64(payload.Testcase)
 		}
 	}

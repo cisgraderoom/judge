@@ -23,7 +23,7 @@ function execution_time
 }
 
 if [[ $EXT == "java" ]]; then
-	javac $FILENAME >/dev/null 2>/dev/null &
+	javac $FILENAME >/dev/null 2>$ERR &
 	
 	pid="$!"
 	wait "$pid"
@@ -36,7 +36,7 @@ fi
 
 if [[ $EXT == "cpp" ]]; then
 
-	g++ $FILENAME -O2 -o $OUTPUT >/dev/null 2>$OUTPUT &
+	g++ $FILENAME -O2 -o $OUTPUT >/dev/null 2>$ERR &
 
 	pid="$!"
 	wait "$pid"
