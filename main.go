@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/streadway/amqp"
 	"gitlab.com/cisclassroom/compiler/comms"
@@ -75,6 +76,13 @@ func judge(message comms.MessageBody) error {
 	if err := json.Unmarshal(message.Data, &payload); err != nil {
 		logs.Fatal(err)
 		return err
+	}
+	if payload.Mode == "success" {
+		err := successJob(payload)
+		if err != nil {
+			return err
+		}
+		return nil
 	}
 	err := writeTestCaseFile(payload)
 	if err != nil {
@@ -189,12 +197,33 @@ func grade(payload schemas.Payload) error {
 }
 
 func insertCompileError(fe string, payload schemas.Payload) error {
-	err := db.Table("submission").Where("submission_id = ?", payload.SubmissionId).Updates(map[string]interface{}{
-		"result": fe,
-		"score":  0,
-	})
-	if err.Error != nil {
-		return err.Error
+	if payload.Mode == "new" {
+		err := db.Table("submission").Where("submission_id = ?", payload.SubmissionId).Updates(map[string]interface{}{
+			"result": fe,
+			"score":  0,
+		})
+		if err.Error != nil {
+			return err.Error
+		}
+	} else {
+		err := db.Table("submission").Create(map[string]interface{}{
+			"username":   payload.Username,
+			"classcode":  payload.Classcode,
+			"problem_id": payload.ProblemId,
+			"code":       payload.Code,
+			"result":     fe,
+			"score":      0.00,
+			"lang":       payload.Language,
+			"created_at": time.Now(),
+		})
+		if err.Error != nil {
+			return err.Error
+		}
+	}
+	if err := db.Table("score").Where("username = ?", payload.Username).Where("problem_id = ?", payload.ProblemId).Updates(map[string]interface{}{
+		"score": 0,
+	}).Error; err != nil {
+		return err
 	}
 	return nil
 }
@@ -206,12 +235,28 @@ func insertResult(data []string, payload schemas.Payload) error {
 			score += payload.MaxScore / float64(payload.Testcase)
 		}
 	}
-	err := db.Table("submission").Where("submission_id = ?", payload.SubmissionId).Updates(map[string]interface{}{
-		"result": strings.Join(data, ""),
-		"score":  score,
-	})
-	if err.Error != nil {
-		return err.Error
+	if payload.Mode == "new" {
+		err := db.Table("submission").Where("submission_id = ?", payload.SubmissionId).Updates(map[string]interface{}{
+			"result": strings.Join(data, ""),
+			"score":  score,
+		})
+		if err.Error != nil {
+			return err.Error
+		}
+	} else {
+		err := db.Table("submission").Create(map[string]interface{}{
+			"username":   payload.Username,
+			"classcode":  payload.Classcode,
+			"problem_id": payload.ProblemId,
+			"code":       payload.Code,
+			"result":     strings.Join(data, ""),
+			"score":      score,
+			"lang":       payload.Language,
+			"created_at": time.Now(),
+		})
+		if err.Error != nil {
+			return err.Error
+		}
 	}
 
 	if err := db.Table("score").Where("username = ?", payload.Username).Where("problem_id = ?", payload.ProblemId).Updates(map[string]interface{}{
@@ -227,6 +272,15 @@ func removeAllfile(payload schemas.Payload) error {
 	dir, _ := os.Getwd()
 	err := os.RemoveAll(fmt.Sprintf("%s/out/%d", dir, payload.SubmissionId))
 	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func successJob(payload schemas.Payload) error {
+	if err := db.Table("jobs").Where("id = ?", payload.JobId).Updates(map[string]interface{}{
+		"status": true,
+	}).Error; err != nil {
 		return err
 	}
 	return nil

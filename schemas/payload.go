@@ -1,6 +1,7 @@
 package schemas
 
 type Payload struct {
+	Mode         string   `json:"mode"`
 	SubmissionId int      `json:"submission_id"`
 	Language     string   `json:"language"`
 	Code         string   `json:"code"`
@@ -12,4 +13,6 @@ type Payload struct {
 	Username     string   `json:"username"`
 	Testcase     int      `json:"testcase"`
 	MaxScore     float64  `json:"max_score"`
+	Classcode    string   `json:"classcode"`
+	JobId        int      `json:"job_id"`
 }
