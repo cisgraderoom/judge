@@ -55,4 +55,3 @@ CMD ["./cisrgraderoom_compiler"]
 #             --env  CIS_RABBITMQ_PORT=5672 \
 #             --env  APP_SERVICE=judge \
 #             compiler:latest
-

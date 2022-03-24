@@ -230,8 +230,8 @@ func insertCompileError(fe string, payload schemas.Payload) error {
 
 func insertResult(data []string, payload schemas.Payload) error {
 	var score float64
-	for _, val := range data {
-		if val == "P" {
+	for i := 0; i < payload.Testcase; i++ {
+		if data[i] == "P" {
 			score += payload.MaxScore / float64(payload.Testcase)
 		}
 	}
