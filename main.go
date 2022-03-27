@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/streadway/amqp"
-	"gitlab.com/cisclassroom/compiler/comms"
-	"gitlab.com/cisclassroom/compiler/config"
-	"gitlab.com/cisclassroom/compiler/conn"
-	"gitlab.com/cisclassroom/compiler/logs"
-	"gitlab.com/cisclassroom/compiler/schemas"
+	"gitlab.com/cisclassroom/services/judge/comms"
+	"gitlab.com/cisclassroom/services/judge/config"
+	"gitlab.com/cisclassroom/services/judge/conn"
+	"gitlab.com/cisclassroom/services/judge/logs"
+	"gitlab.com/cisclassroom/services/judge/schemas"
 	"gorm.io/gorm"
 )
 
@@ -211,7 +211,7 @@ func insertCompileError(fe string, payload schemas.Payload) error {
 			"classcode":  payload.Classcode,
 			"problem_id": payload.ProblemId,
 			"code":       payload.Code,
-			"result":     fe,
+			"result":     fmt.Sprintf("%s", fe),
 			"score":      0.00,
 			"lang":       payload.Language,
 			"created_at": time.Now(),
