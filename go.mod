@@ -1,4 +1,4 @@
-module gitlab.com/cisclassroom/services/judge
+module judge
 
 go 1.18
 

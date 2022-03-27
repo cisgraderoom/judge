@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/streadway/amqp"
-	"gitlab.com/cisclassroom/services/judge/comms"
-	"gitlab.com/cisclassroom/services/judge/config"
-	"gitlab.com/cisclassroom/services/judge/conn"
-	"gitlab.com/cisclassroom/services/judge/logs"
-	"gitlab.com/cisclassroom/services/judge/schemas"
+	"judge/comms"
+	"judge/config"
+	"judge/conn"
+	"judge/logs"
+	"judge/schemas"
 	"gorm.io/gorm"
 )
 

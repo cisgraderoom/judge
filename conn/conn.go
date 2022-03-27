@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"gitlab.com/cisclassroom/services/judge/logs"
+	"judge/logs"
+
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
