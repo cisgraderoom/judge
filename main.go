@@ -4,17 +4,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"strings"
 	"time"
 
-	"github.com/streadway/amqp"
 	"judge/comms"
 	"judge/config"
 	"judge/conn"
-	"judge/logs"
 	"judge/schemas"
+
+	"github.com/streadway/amqp"
 	"gorm.io/gorm"
 )
 
@@ -22,7 +23,7 @@ var db *gorm.DB
 
 func main() {
 	// Start Report Service
-	logs.Info(fmt.Sprintf("🐳 GO_ENV: %s, APP_ENV: %s", os.Getenv("GO_ENV"), os.Getenv("APP_ENV")))
+	fmt.Println(fmt.Sprintf("🐳 GO_ENV: %s, APP_ENV: %s", os.Getenv("GO_ENV"), os.Getenv("APP_ENV")))
 
 	db = conn.Connection()
 
@@ -62,9 +63,9 @@ func messageHandler(_ comms.Connection, q string, deliveries <-chan amqp.Deliver
 			Priority:      d.Priority,
 			CorrelationID: d.CorrelationId,
 		}
-		logs.Info(fmt.Sprintf("🐳 Received message from %s", m.Queue))
+		log.Println(fmt.Sprintf("🐳 Received message from %s", m.Queue))
 		if err := judge(m.Body); err != nil {
-			logs.Error(err)
+			log.Printf(err.Error())
 		} else {
 			d.Ack(false)
 		}
@@ -74,7 +75,7 @@ func messageHandler(_ comms.Connection, q string, deliveries <-chan amqp.Deliver
 func judge(message comms.MessageBody) error {
 	var payload schemas.Payload
 	if err := json.Unmarshal(message.Data, &payload); err != nil {
-		logs.Fatal(err)
+		log.Fatal(err)
 		return err
 	}
 	if payload.Mode == "success" {
@@ -86,7 +87,7 @@ func judge(message comms.MessageBody) error {
 	}
 	err := writeTestCaseFile(payload)
 	if err != nil {
-		logs.Fatal(err)
+		log.Fatal(err)
 		return err
 	}
 	err = compile(payload)
@@ -94,18 +95,18 @@ func judge(message comms.MessageBody) error {
 		if err.Error() == "CF" {
 			return nil
 		} else {
-			logs.Fatal(err)
+			log.Fatal(err)
 			return err
 		}
 	}
 	err = grade(payload)
 	if err != nil {
-		logs.Fatal(err)
+		log.Fatal(err)
 		return err
 	}
 	err = removeAllfile(payload)
 	if err != nil {
-		logs.Error(err)
+		log.Printf(err.Error())
 		return err
 	}
 	return nil
